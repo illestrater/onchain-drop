@@ -1,0 +1,54 @@
+{
+  "chooseTraits": [[
+    "Display",
+    "Frame Type",
+    "Frame Color",
+    "Accessories"
+  ]],
+  "chooseProperties": [
+    ["Yes", "No"],
+    ["Rounded", "Square"],
+    ["White", "Black", "Natural"],
+    ["Gesture Camera", "Soundbar"]
+  ],
+  "randomTraits": [[
+    "Innovation",
+    "Artist Commissions",
+    "Events",
+    "Art Travel",
+    "NFT Network Staking",
+    "Concierge Service",
+    "Insurance",
+    "Gen2 Frame"
+  ]],
+  "randomTraitValues": [
+    ["Prototype Access", "Design Meetings", "Next Gen Beta Access"],
+    ["1 per year", "3 per year", "12 per year"],
+    ["Private Auctions", "Private Sales", "Artist Meet & Greets"],
+    ["1 per year", "3 per year", "12 per year"],
+    ["LAGO Holder", "Collection Rentals", "Private Sales"],
+    ["Buy", "Sell", "Rent NFTs"],
+    ["Insure Collection"],
+    ["22\"", "33\"", "48\""]
+  ],
+  "randomTraitsChance": [[
+    1000,
+    3000,
+    800,
+    300,
+    3000,
+    500,
+    300,
+    1500
+  ]],
+  "randomValuesChance": [
+    [3333, 3333, 3333],
+    [3333, 3333, 3333],
+    [3333, 3333, 3333],
+    [3333, 3333, 3333],
+    [3333, 3333, 3333],
+    [3333, 3333, 3333],
+    [10000],
+    [3333, 3333, 3333]
+  ]
+}

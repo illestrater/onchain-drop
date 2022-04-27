@@ -20,12 +20,7 @@ describe("Drop", function () {
 
   it("Should randomize and show metadata", async function () {
     const Drop = await hre.ethers.getContractFactory("Drop");
-    console.log([
-      metadata.chooseTraits,
-      metadata.chooseProperties,
-      metadata.randomTraits,
-      metadata.randomTraitValues
-    ]);
+
     const drop = await Drop.deploy(
       vrfCoordinator,
       link,
@@ -47,11 +42,6 @@ describe("Drop", function () {
       ]
     );
 
-    console.log([
-      metadata.randomTraitsChance,
-      metadata.randomValuesChance
-    ])
-
     await drop.deployed();
 
     console.log("Contract deployed to:", drop.address);
@@ -60,6 +50,8 @@ describe("Drop", function () {
     await drop.mint([1, 0, 1, 1], {value: tokenPrice });
     await drop.mint([1, 1, 2, 1], {value: tokenPrice });
     await drop.mint([0, 0, 0, 0], {value: tokenPrice });
+
+    await drop.fulfillVRFMock();
 
     let test = await drop.tokenURI(1);
     console.log(base64toJSON(test));

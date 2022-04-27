@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Unlicense
 // Written by illestrater <> @illestrater_
+// Thought innovation by LAGO Frame
+
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -92,38 +94,70 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
         });
     }
 
-    function randomMetadata(uint vrfNumber) public {
-        console.log('GENERATING', vrfNumber);
-
-        // TODO: REMOVE VRF NUMBER TO MINT NUMBER
+    function randomMetadata(uint vrfNumber, uint tokenId) private {
         for (uint i = 0; i < metadata.traitsChance.length; i++) {
             if (uint(keccak256(
-                    abi.encodePacked(block.difficulty, block.timestamp, vrfNumber, i
+                    abi.encodePacked(block.difficulty, block.timestamp, vrfNumber, tokenId, i
                 ))) % 10000 < metadata.traitsChance[i]) {
                 uint randomNumber = uint(keccak256(
-                    abi.encodePacked(block.difficulty, block.timestamp, vrfNumber, i * 1000
+                    abi.encodePacked(block.difficulty, block.timestamp, vrfNumber, tokenId, i + 1234
                 ))) % metadata.valuesChance[i][metadata.valuesChance[i].length - 1];
                 for (uint j = 0; j < metadata.valuesChance[i].length; j++) {
                     if (randomNumber <= metadata.valuesChance[i][j]) {
                         if (j == 0 || randomNumber > metadata.valuesChance[i][j - 1]) {
-                            traitIndexes[vrfNumber].push(TraitIndex(uint16(i), uint16(j)));
+                            traitIndexes[tokenId].push(TraitIndex(uint16(i), uint16(j)));
                             break;
                         }
                     }
                 }
             }
         }
+    }
 
-        // for (uint i = 0; i < traitIndexes[vrfNumber].length; i++) {
-        //     console.log(metadata.randomTraits[traitIndexes[vrfNumber][i].traitIndex], metadata.randomValues[traitIndexes[vrfNumber][i].traitIndex][traitIndexes[vrfNumber][i].valueIndex]);
-        // }
+    function randomizeMetadata() public {
+        require(msg.sender == deployer);
+
+        uint remainder = tokenIdCounter.sub(metadataRandomizedCounter);
+        if (remainder > 100) remainder = 100;
+
+        uint256 requestId = COORDINATOR.requestRandomWords(
+          keyHash,
+          subscriptionId,
+          3,
+          uint32(remainder.mul(175000)),
+          1
+      );
     }
 
     /**
      * Callback function used by VRF Coordinator
      */
     function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-        randomMetadata(randomWords[0]);
+        uint remainder = tokenIdCounter.sub(metadataRandomizedCounter);
+        if (remainder > 100) remainder = 100;
+        for (uint i = 0; i < remainder; i++) {
+            randomMetadata(randomWords[0], tokenIdCounter + i);
+        }
+
+        metadataRandomizedCounter.add(remainder);
+    }
+
+    /**
+     * Used for testing purposes mocking random function
+     */
+    function fulfillVRFMock() public {
+        uint remainder = tokenIdCounter.sub(metadataRandomizedCounter);
+        if (remainder > 100) remainder = 100;
+
+        uint randomWord = uint(keccak256(
+            abi.encodePacked(block.difficulty, block.timestamp, uint(234), uint(1982)
+        )));
+
+        for (uint i = 0; i < remainder; i++) {
+            randomMetadata(randomWord, tokenIdCounter + i);
+        }
+
+        metadataRandomizedCounter.add(remainder);
     }
 
     function mint(uint16[] calldata traits) public payable nonReentrant {
@@ -139,11 +173,11 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
 
         chosenTraits[tokenIdCounter] = traits;
         _mint(_msgSender(), tokenIdCounter);
-        randomMetadata(tokenIdCounter);
     }
 
     function tokenURI(uint256 tokenId) public view virtual override(ERC721) returns (string memory) {
         string memory encodedMetadata = '';
+        string memory urlParams = '';
 
         for (uint i = 0; i < traitIndexes[tokenId].length; i++) {
             encodedMetadata = string(abi.encodePacked(
@@ -155,6 +189,14 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
                 '"}',
                 i == traitIndexes[tokenId].length ? '' : ',')
             );
+
+            urlParams = string(abi.encodePacked(
+                urlParams,
+                metadata.randomTraits[traitIndexes[tokenId][i].traitIndex],
+                '=',
+                metadata.randomValues[traitIndexes[tokenId][i].traitIndex][traitIndexes[tokenId][i].valueIndex],
+                '&'
+            ));
         }
 
         for (uint i = 0; i < metadata.choosableTraits.length; i++) {
@@ -167,7 +209,15 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
                 '"}',
                 i == metadata.choosableTraits.length - 1 ? '' : ',')
             );
-        }
+
+            urlParams = string(abi.encodePacked(
+                urlParams,
+                metadata.choosableTraits[i],
+                '=',
+                metadata.choosableValues[i][chosenTraits[tokenId][i]],
+                '&'
+            ));
+        }        
 
         string memory encoded = string(
             abi.encodePacked(
@@ -182,7 +232,8 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
                     '", "description":"',
                     'Lago Pass Description',
                     '", "image": "',
-                    'https://lagoframe.com/',
+                    'https://lagoframe.com/nft?',
+                    urlParams,
                     '", "attributes": [',
                     encodedMetadata,
                     '] }'

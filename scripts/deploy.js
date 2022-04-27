@@ -6,6 +6,16 @@
 const hre = require("hardhat");
 const metadata = require('../metadata.json');
 
+const vrfCoordinator = '0x6168499c0cFfCaCD319c818142124B7A15E857ab';
+const link = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709';
+const keyHash = '0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc';
+const subscriptionId = 677;
+
+const tokenPrice = ethers.utils.parseEther("0.0007");
+const maxSupply = 4000;
+const name = "Lago Frame";
+const symbol = "LAGO";
+
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
   // line interface.
@@ -15,8 +25,17 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const Drop = await hre.ethers.getContractFactory("Greeter");
-  const drop = await Drop.deploy("Lago Frame", "LAGO",
+  const Drop = await hre.ethers.getContractFactory("Drop");
+
+  const args = [
+    vrfCoordinator,
+    link,
+    keyHash,
+    subscriptionId,
+    name,
+    symbol,
+    tokenPrice,
+    maxSupply,
     [
       metadata.chooseTraits,
       metadata.chooseProperties,
@@ -27,11 +46,31 @@ async function main() {
       metadata.randomTraitsChance,
       metadata.randomValuesChance
     ]
-  );
+  ];
+
+  const drop = await Drop.deploy(...args);
 
   await drop.deployed();
 
-  console.log("Contract deployed to:", drop.address);
+  console.log('Drop contract deployed', drop.address);
+
+  await new Promise(resolve => setTimeout(resolve, 20000));
+
+  try {
+    await hre.run("verify:verify", {
+      address: drop.address,
+      constructorArguments: args,
+    });
+  } catch (e) {
+    console.log('got error', e);
+  }
+
+  console.log('Drop contract verified');
+
+  await drop.mint([0, 1, 1, 0], {value: tokenPrice });
+  await drop.mint([1, 0, 1, 1], {value: tokenPrice });
+  await drop.mint([1, 1, 2, 1], {value: tokenPrice });
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere

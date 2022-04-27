@@ -14,6 +14,10 @@ import 'base64-sol/base64.sol';
 import "./HelperFunctions.sol";
 import "hardhat/console.sol";
 
+/* TODO:
+ * - Minting phases
+ * - Chainlink request double handler(?)
+ */
 contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
     using SafeMath for uint256;
 

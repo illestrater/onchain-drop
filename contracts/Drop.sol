@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import 'base64-sol/base64.sol';
+import "./HelperFunctions.sol";
 import "hardhat/console.sol";
 
 contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
@@ -38,7 +40,9 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
     uint metadataRandomizedCounter = 0;
     uint tokenPrice;
     uint maxSupply;
+    string nftName;
     Metadata metadata;
+    mapping (uint => uint[]) chosenTraits;
     mapping (uint => TraitIndex[]) traitIndexes;
 
     constructor(
@@ -46,13 +50,13 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
         address _linkToken,
         bytes32 _keyHash,
         uint64 _subscriptionId,
-        string memory name,
-        string memory symbol,
+        string memory _name,
+        string memory _symbol,
         uint _tokenPrice,
         uint _maxSupply,
         string[][][] memory traits,
         uint16[][][] memory chances
-    ) ERC721(name, symbol) VRFConsumerBaseV2(_vrfCoordinator) {
+    ) ERC721(_name, _symbol) VRFConsumerBaseV2(_vrfCoordinator) {
         require(traits[0][0].length == traits[1].length &&
                 traits[2][0].length == traits[3].length &&
                 traits[3].length == chances[0][0].length &&
@@ -65,6 +69,7 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
         deployer = msg.sender;
         maxSupply = _maxSupply;
         tokenPrice = _tokenPrice;
+        nftName = _name;
 
         uint16[][] memory valueChances = new uint16[][](chances[1].length);
         for (uint i = 0; i < chances[1].length; i++) {
@@ -109,9 +114,9 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
             }
         }
 
-        for (uint i = 0; i < traitIndexes[vrfNumber].length; i++) {
-            console.log(metadata.randomTraits[traitIndexes[vrfNumber][i].traitIndex], metadata.randomValues[traitIndexes[vrfNumber][i].traitIndex][traitIndexes[vrfNumber][i].valueIndex]);
-        }
+        // for (uint i = 0; i < traitIndexes[vrfNumber].length; i++) {
+        //     console.log(metadata.randomTraits[traitIndexes[vrfNumber][i].traitIndex], metadata.randomValues[traitIndexes[vrfNumber][i].traitIndex][traitIndexes[vrfNumber][i].valueIndex]);
+        // }
     }
 
     /**
@@ -121,7 +126,7 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
         randomMetadata(randomWords[0]);
     }
 
-    function mint() public payable nonReentrant {
+    function mint(uint16[] calldata traits) public payable nonReentrant {
         require(tokenIdCounter < maxSupply, "Total supply reached");
         tokenIdCounter += 1;
 
@@ -132,7 +137,62 @@ contract Drop is ERC721, VRFConsumerBaseV2, ReentrancyGuard {
             require(returnExcessStatus, "Failed to return excess.");
         }
 
+        chosenTraits[tokenIdCounter] = traits;
         _mint(_msgSender(), tokenIdCounter);
+        randomMetadata(tokenIdCounter);
+    }
+
+    function tokenURI(uint256 tokenId) public view virtual override(ERC721) returns (string memory) {
+        string memory encodedMetadata = '';
+
+        for (uint i = 0; i < traitIndexes[tokenId].length; i++) {
+            encodedMetadata = string(abi.encodePacked(
+                encodedMetadata,
+                '{"trait_type":"',
+                metadata.randomTraits[traitIndexes[tokenId][i].traitIndex],
+                '", "value":"',
+                metadata.randomValues[traitIndexes[tokenId][i].traitIndex][traitIndexes[tokenId][i].valueIndex],
+                '"}',
+                i == traitIndexes[tokenId].length ? '' : ',')
+            );
+        }
+
+        for (uint i = 0; i < metadata.choosableTraits.length; i++) {
+            encodedMetadata = string(abi.encodePacked(
+                encodedMetadata,
+                '{"trait_type":"',
+                metadata.choosableTraits[i],
+                '", "value":"',
+                metadata.choosableValues[i][chosenTraits[tokenId][i]],
+                '"}',
+                i == metadata.choosableTraits.length - 1 ? '' : ',')
+            );
+        }
+
+        string memory encoded = string(
+            abi.encodePacked(
+            'data:application/json;base64,',
+            Base64.encode(
+                bytes(
+                abi.encodePacked(
+                    '{"name":"',
+                    nftName,
+                    ' #',
+                    HelperFunctions.toString(tokenId),
+                    '", "description":"',
+                    'Lago Pass Description',
+                    '", "image": "',
+                    'https://lagoframe.com/',
+                    '", "attributes": [',
+                    encodedMetadata,
+                    '] }'
+                )
+                )
+            )
+            )
+        );
+
+        return encoded;
     }
 
     function withdraw(address _to, uint amount) public {
